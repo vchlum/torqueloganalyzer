@@ -10,6 +10,7 @@ namespace options
     extern std::vector<std::string> inputs;
     extern std::string single_user;
     extern bool simple_stats;
+    extern bool detect_sessions;
 }
 
 int parse_options(int argc, char *argv[]);

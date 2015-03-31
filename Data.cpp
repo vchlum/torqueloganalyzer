@@ -16,6 +16,7 @@ vector<future<Data>> futures;
 static size_t curr_thread = 0;
 
 vector<Data> data;
+set<string> users;
 
 void callback(const char * const begin, const char * const end)
 {
@@ -43,6 +44,9 @@ void callback(const char * const begin, const char * const end)
         else
         {
 		data.push_back(futures[curr_thread % options::maximum_threads].get());
+		if (data[data.size()-1].fields.owner)
+			users.insert(*(data[data.size()-1].fields.owner));
+
                 futures[curr_thread % options::maximum_threads] = task.get_future();
                 thread(move(task)).detach();
         }
@@ -57,6 +61,9 @@ void finish_processing()
         do
         {
 		data.push_back(futures[tail % options::maximum_threads].get());
+		if (data[data.size()-1].fields.owner)
+			users.insert(*(data[data.size()-1].fields.owner));
+
                 tail++;
         }
         while (tail % options::maximum_threads != curr_thread % options::maximum_threads);

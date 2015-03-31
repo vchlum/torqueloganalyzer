@@ -14,6 +14,7 @@ namespace options
 	vector<string> inputs;
 	string single_user = "";
 	bool simple_stats = false;
+	bool detect_sessions = false;
 }
 
 int parse_options(int argc, char *argv[])
@@ -24,6 +25,7 @@ int parse_options(int argc, char *argv[])
 			("simple-stats", "Print a summary overview of the processed events.")
 			("max-threads", po::value<size_t>(), "Set the number of threads used for parsing the input.")
 			("single-user", po::value<string>(), "print information about a single user")
+			("detect-sessions", "Print sessions detected in the workload.")
 			;
 
 	po::options_description hidden("Hidden options");
@@ -69,6 +71,11 @@ int parse_options(int argc, char *argv[])
 	if (vm.count("simple-stats"))
 	{
 		options::simple_stats = true;
+	}
+
+	if (vm.count("detect-sessions"))
+	{
+		options::detect_sessions = true;
 	}
 
 	return 0;

@@ -83,6 +83,10 @@ struct FullJob
 
 map<string, FullJob> fulljobs;
 
+//vector<FullJob> raw_user_jobs;
+
+//map<string, vector<FullJob> > raw_user_jobs;
+
 void construct_fulljob_information(vector<Data>& job_data);
 void construct_fulljob_information(vector<Data>& job_data)
 {
@@ -115,6 +119,7 @@ void construct_fulljob_information(vector<Data>& job_data)
     }
 }
 
+/*
 void single_user_stats(vector<Data>& job_data);
 void single_user_stats(vector<Data>& job_data)
 {
@@ -194,6 +199,12 @@ void single_user_stats(vector<Data>& job_data)
 
 }
 
+*/
+
+struct Session
+{
+
+};
 
 int main(int argc, char *argv[])
 {
@@ -220,6 +231,8 @@ int main(int argc, char *argv[])
 		finish_processing();
 	}
 
+	cerr << "[" << time(NULL) << "] Reading finished." << endl;
+
 	// generate an overview of collected data
 	if (options::simple_stats)
 	{
@@ -243,20 +256,56 @@ int main(int argc, char *argv[])
 			cout << "\tjobs restarted from checkpoints :" << global_stats.event_restart_from_checkpoint << endl;
 		if (global_stats.event_reruns > 0)
 			cout << "\tjob reruns : " << global_stats.event_reruns << endl;
+
+		return 0;
+	}
+
+	job_preprocess(data);
+	if (jobs_black_list.size() > 0)
+		cerr << "[" << time(NULL) << "] Preproccessed jobs, " << jobs_black_list.size() << " will be ignored during processing phase." << endl;
+
+	construct_fulljob_information(data);
+		cerr << "[" << time(NULL) << "] Job events successfully collected. " << fulljobs.size() << " unique jobs collected." << endl;
+
+	// detect sessions in the workload
+	if (options::detect_sessions)
+	{
+		// iterate over users
+		for (auto i : users)
+		{
+			uint64_t last_arrival = 0;
+			uint64_t this_arrival = 0;
+			for (size_t j = 0; j < data.size(); ++j)
+			{
+				if (data[j].event == 'S')
+				{
+					if (fulljobs[data[j].id].event_start != NULL &&					// was started
+						fulljobs[data[j].id].event_start->fields.owner &&			// has user
+						(i == *(fulljobs[data[j].id].event_start->fields.owner)) &&		// this user
+						fulljobs[data[j].id].event_start->fields.time_arriv)			// has arrival
+					{
+						this_arrival = *(fulljobs[data[j].id].event_start->fields.time_arriv);
+						if (last_arrival == 0)
+						{ // create first session
+
+						}
+						else if (this_arrival - last_arrival <= HOUR)
+						{ // same session
+
+						}
+					}
+				}
+			}
+
+			// detect batches inside sessions
+			// setup dependencies between batches
+		}
 	}
 
 	return 0;
 
 #if 0
-	cerr << "[" << time(NULL) << "] Starting processing." << endl;
-	cerr << "[" << time(NULL) << "] Processing finished." << endl;
 
-    job_preprocess(data);
-    if (jobs_black_list.size() > 0)
-	cerr << "[" << time(NULL) << "] Preproccessed jobs, " << jobs_black_list.size() << " will be ignored during processing phase." << endl;
-
-    construct_fulljob_information(data);
-    cerr << "[" << time(NULL) << "] Job events successfully collected. " << fulljobs.size() << " unique jobs collected." << endl;
 
     if (options::single_user != "")
     {

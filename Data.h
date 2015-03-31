@@ -4,6 +4,7 @@
 // STD C++
 #include <vector>
 #include <string>
+#include <set>
 
 // BOOST
 #include <boost/optional/optional_io.hpp>
@@ -49,6 +50,7 @@ BOOST_FUSION_ADAPT_STRUCT(Data,
     )
 
 extern std::vector<Data> data;
+extern std::set<std::string> users;
 
 void callback(const char * const begin, const char * const end);
 void finish_processing();
