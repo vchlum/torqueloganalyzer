@@ -1,10 +1,14 @@
-#ifndef FASTLiNEREADER_H
-#define FASTLiNEREADER_H
+/* Copyright (c) 2015 Simon Toth kontakt@simontoth.cz
+ * Lincensed under the MIT license: http://opensource.org/licenses/MIT
+ */
+
+#ifndef FASTLINEREADER_H
+#define FASTLINEREADER_H
 
 // STD C++
 #include <iosfwd>
 
-/** Quick line-by-line parser of text files
+/** Quick line-by-line parser of text files for POSIX/Linux
  *
  *  This function provides a fast line parser with a callback model.
  *
@@ -14,4 +18,4 @@
  **/
 int fastLineParser(const char * const filename, void (*callback)(const char * const, const char * const));
 
-#endif // FASTLiNEREADER_H
+#endif // FASTLINEREADER_H

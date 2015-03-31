@@ -10,11 +10,4 @@ namespace options
 
 }
 
-// A single session for one user, all jobs have inter-arrival times less then given constant
-struct Session
-{
-
-
-};
-
 #endif // SESSIONS_H
