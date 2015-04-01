@@ -216,12 +216,13 @@ struct Batch
 		last_completion = *(first_job->event_compl->fields.time_compl);
 		global_id.first = sessionID;
 		global_id.second = batchID;
+		job_info.push_back(first_job);
 	}
 
 	void add_job(FullJob *job)
 	{
 		if (first_arrival > *(job->event_start->fields.time_arriv))
-			cerr << "Bad ordering between jobs. Earlier arrival processed after later arrival." << endl;
+			cerr << "Bad ordering between jobs. Earlier arrival processed after later arrival. (" << *(job->event_start->fields.time_arriv) << ") diff (" << (first_arrival - *(job->event_start->fields.time_arriv)) << ")" << endl;
 
 		if (last_completion < *(job->event_compl->fields.time_compl))
 			last_completion = *(job->event_compl->fields.time_compl);
@@ -232,13 +233,11 @@ struct Batch
 	vector< pair<unsigned,unsigned> > strict_after;
 	void add_dep(unsigned session, unsigned batch)
 	{
-		assert(batch < 100);
 		strict_after.push_back(make_pair(session,batch));
 	}
 
 	void add_dep(pair<unsigned,unsigned> globalID)
 	{
-		assert(globalID.second < 100);
 		strict_after.push_back(globalID);
 	}
 
@@ -273,7 +272,7 @@ struct Session
 	unsigned add_job(FullJob *job)
 	{
 		if (first_arrival > *(job->event_start->fields.time_arriv))
-			cerr << "Bad ordering between jobs. Earlier arriva processed after later arrival." << endl;
+			cerr << "Bad ordering between jobs. Earlier arriva processed after later arrival. (" << *(job->event_start->fields.time_arriv) << ") diff (" << (first_arrival - *(job->event_start->fields.time_arriv)) << ")" << endl;
 
 		last_arrival = *(job->event_start->fields.time_arriv);
 		if (last_completion < *(job->event_compl->fields.time_compl))
@@ -374,6 +373,9 @@ int main(int argc, char *argv[])
 	// detect sessions in the workload
 	if (options::detect_sessions)
 	{
+		fstream stats;
+		stats.open("session_stats.dat",ios_base::out | ios_base::trunc);
+
 		// iterate over users
 		for (auto i : users)
 		{
@@ -385,6 +387,9 @@ int main(int argc, char *argv[])
 			int64_t this_arrival = 0;
 			for (size_t j = 0; j < data.size(); ++j)
 			{
+				if (jobs_black_list.find(data[j].id) != jobs_black_list.end())
+				    continue;
+
 				if (data[j].event == 'Q')
 				{
 					if (fulljobs[data[j].id].event_start != NULL &&					// only started jobs
@@ -432,6 +437,10 @@ int main(int argc, char *argv[])
 			fstream f;
 			f.open(filename.str(),ios_base::out | ios_base::trunc);
 
+			int64_t total_jobs = 0;
+			int64_t total_batches = 0;
+			int64_t total_sessions = 0;
+
 			f << "digraph main { " << endl;
 			for (size_t j = 0; j < user_sessions[i].size(); j++)
 			{
@@ -443,9 +452,12 @@ int main(int argc, char *argv[])
 				for (size_t k = 0; k < user_sessions[i][j].batches.size(); k++)
 				{
 					f << " \"" << user_sessions[i][j].batches[k].get_batch_label() << "\"";
+					total_jobs += user_sessions[i][j].batches[k].job_info.size();
+					total_batches++;
 				}
 				f << ";" << endl;
 				f << "}" << endl;
+				total_sessions++;
 			}
 
 			for (size_t j = 0; j < user_sessions[i].size(); j++)
@@ -465,7 +477,11 @@ int main(int argc, char *argv[])
 
 			f << "}" << endl;
 			f.close();
+
+			stats << i << " " << total_jobs << " " << total_batches << " " << total_sessions << " " << (double)total_jobs/total_batches << " " << (double)total_batches/total_sessions << " " << (double)total_jobs/total_sessions << endl;
 		}
+
+		stats.close();
 	}
 
 	return 0;
