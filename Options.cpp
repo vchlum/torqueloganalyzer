@@ -15,6 +15,9 @@ namespace options
 	string single_user = "";
 	bool simple_stats = false;
 	bool detect_sessions = false;
+	bool validate_job_data = false;
+	std::string queue_filter;
+	std::string user_filter;
 }
 
 int parse_options(int argc, char *argv[])
@@ -26,6 +29,9 @@ int parse_options(int argc, char *argv[])
 			("max-threads", po::value<size_t>(), "Set the number of threads used for parsing the input.")
 			("single-user", po::value<string>(), "print information about a single user")
 			("detect-sessions", "Print sessions detected in the workload.")
+			("validate-job-data", "Validate job data, only valid jobs will be processed.")
+			("single-queue", po::value<string>(), "Only process jobs from a single queue.")
+			("single-user", po::value<string>(), "Only process jobs from a single user.")
 			;
 
 	po::options_description hidden("Hidden options");
@@ -76,6 +82,16 @@ int parse_options(int argc, char *argv[])
 	if (vm.count("detect-sessions"))
 	{
 		options::detect_sessions = true;
+	}
+
+	if (vm.count("single-queue"))
+	{
+		options::queue_filter = vm["single-queue"].as<string>();
+	}
+
+	if (vm.count("single-user"))
+	{
+		options::queue_filter = vm["single-user"].as<string>();
 	}
 
 	return 0;

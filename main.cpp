@@ -26,40 +26,7 @@ namespace options
     const bool print_per_user_info = true;
     const bool print_per_queue_info = true;
     const char event_type = 'S';
-    const std::string queue_filter = "ncbr";
-    const std::string user_filter = "";
     const bool utilization_only = false;
-}
-
-set<string> jobs_black_list;
-void job_preprocess(const vector<Data>& job_data);
-void job_preprocess(const vector<Data>& job_data)
-{
-    for (size_t i = 0; i < job_data.size(); ++i)
-    {
-	if (job_data[i].fields.time_start && *(job_data[i].fields.time_start) == 0)
-	    continue;
-
-	if (job_data[i].fields.time_compl && *(job_data[i].fields.time_compl) == 0)
-	    continue;
-
-	if (job_data[i].fields.time_arriv && *(job_data[i].fields.time_arriv) == 0)
-	    continue;
-
-	if (options::queue_filter.size() != 0)
-	    if (job_data[i].fields.queue && (*job_data[i].fields.queue).substr(0,options::queue_filter.size()) != options::queue_filter)
-		continue;
-
-	if (options::user_filter.size() != 0)
-	    if (job_data[i].fields.owner && (*job_data[i].fields.owner).substr(0,options::user_filter.size()) == options::user_filter)
-		continue;
-
-	if (job_data[i].event == 'S')
-	    jobs_black_list.insert(job_data[i].id);
-
-	if (job_data[i].event == 'E' || job_data[i].event == 'A' || job_data[i].event == 'D')
-	    jobs_black_list.erase(job_data[i].id);
-    }
 }
 
 bool order_times(const pair<int64_t,string>& lhs, const pair<int64_t,string>& rhs);
@@ -74,52 +41,9 @@ bool order_times(const pair<int64_t,string>& lhs, const pair<int64_t,string>& rh
     return false;
 }
 
-struct FullJob
-{
-    Data* event_arrive;
-    Data* event_start;
-    Data* event_compl;
-
-    FullJob() : event_arrive(NULL), event_start(NULL), event_compl(NULL) {}
-};
-
-map<string, FullJob> fulljobs;
-
 //vector<FullJob> raw_user_jobs;
 
 //map<string, vector<FullJob> > raw_user_jobs;
-
-void construct_fulljob_information(vector<Data>& job_data);
-void construct_fulljob_information(vector<Data>& job_data)
-{
-    for (size_t i = 0; i < job_data.size(); ++i)
-    {
-	if (jobs_black_list.find(job_data[i].id) != jobs_black_list.end())
-	    continue;
-
-	auto j = fulljobs.find(job_data[i].id);
-	if (j == fulljobs.end())
-	{
-	    fulljobs.insert(make_pair(job_data[i].id,FullJob()));
-	    j = fulljobs.find(job_data[i].id);
-	}
-
-	if (job_data[i].event == 'Q')
-	{
-	    j->second.event_arrive = &job_data[i];
-	}
-
-	if (job_data[i].event == 'S')
-	{
-	    j->second.event_start = &job_data[i];
-	}
-
-	if (job_data[i].event == 'E')
-	{
-	    j->second.event_compl = &job_data[i];
-	}
-    }
-}
 
 /*
 void single_user_stats(vector<Data>& job_data);
@@ -272,7 +196,7 @@ struct Session
 	unsigned add_job(FullJob *job)
 	{
 		if (first_arrival > *(job->event_start->fields.time_arriv))
-			cerr << "Bad ordering between jobs. Earlier arriva processed after later arrival. (" << *(job->event_start->fields.time_arriv) << ") diff (" << (first_arrival - *(job->event_start->fields.time_arriv)) << ")" << endl;
+			cerr << "Bad ordering between jobs. Earlier arriva processed after later arrival. (" << *(job->event_start->fields.time_arriv) << ") diff (" << (first_arrival - *(job->event_start->fields.time_arriv)) << ") \"" << job->event_start->id << "\"" << endl;
 
 		last_arrival = *(job->event_start->fields.time_arriv);
 		if (last_completion < *(job->event_compl->fields.time_compl))
@@ -314,6 +238,14 @@ struct Session
 };
 
 map<string, vector<Session> > user_sessions;
+
+bool compare_jobs_arrival(const Data& left, const Data& right)
+{
+	if (left.fields.time_arriv && right.fields.time_arriv)
+		return left.fields.time_arriv.get() < right.fields.time_arriv.get();
+	else
+		return left.id < right.id;
+}
 
 int main(int argc, char *argv[])
 {
@@ -367,14 +299,24 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	job_preprocess(data);
-	construct_fulljob_information(data);
+	construct_fulljob_information();
 
 	// detect sessions in the workload
 	if (options::detect_sessions)
 	{
+		//sort(data.begin(),data.end(),compare_jobs_arrival);
+
 		fstream stats;
 		stats.open("session_stats.dat",ios_base::out | ios_base::trunc);
+
+		for (auto i : data_by_user)
+		{
+			auto jobs = i.second; // vector of Data*
+			for (auto j : jobs)
+			{
+
+			}
+		}
 
 		// iterate over users
 		for (auto i : users)
@@ -387,23 +329,26 @@ int main(int argc, char *argv[])
 			int64_t this_arrival = 0;
 			for (size_t j = 0; j < data.size(); ++j)
 			{
-				if (jobs_black_list.find(data[j].id) != jobs_black_list.end())
+				if (job_blacklist.find(data[j].id) != job_blacklist.end())
 				    continue;
 
 				if (data[j].event == 'Q')
 				{
-					if (fulljobs[data[j].id].event_start != NULL &&					// only started jobs
-						fulljobs[data[j].id].event_compl != NULL &&				// only completed jobs
-						fulljobs[data[j].id].event_start->fields.owner &&			// has user information
-						(i == *(fulljobs[data[j].id].event_start->fields.owner)) &&		// this user
-						fulljobs[data[j].id].event_start->fields.time_arriv &&
-						fulljobs[data[j].id].event_compl->fields.time_compl &&
-						fulljobs[data[j].id].event_compl->fields.time_start)			// has arrival
+					if (full_data[data[j].id].event_start != NULL &&					// only started jobs
+						full_data[data[j].id].event_compl != NULL &&				// only completed jobs
+						full_data[data[j].id].event_start->fields.owner &&			// has user information
+						(i == *(full_data[data[j].id].event_start->fields.owner)) &&		// this user
+						full_data[data[j].id].event_start->fields.time_arriv &&
+						full_data[data[j].id].event_compl->fields.time_compl &&
+						full_data[data[j].id].event_compl->fields.time_start)			// has arrival
 					{
-						this_arrival = *(fulljobs[data[j].id].event_start->fields.time_arriv);
+						if (options::validate_job_data && (!validate_job(data[j].id)))
+							continue;
+
+						this_arrival = *(full_data[data[j].id].event_start->fields.time_arriv);
 						if (last_arrival == 0 || this_arrival - last_arrival > HOUR)
 						{ // create a new session
-							user_sessions[i].push_back(Session(&fulljobs[data[j].id],last_session_id));
+							user_sessions[i].push_back(Session(&full_data[data[j].id],last_session_id));
 							if (last_session_id > 0)
 							{
 								user_sessions[i][user_sessions[i].size()-1].add_follows_dep(last_session_id-1,last_batch_id);
@@ -421,7 +366,7 @@ int main(int argc, char *argv[])
 						}
 						else if (this_arrival - last_arrival <= HOUR)
 						{ // same session
-							last_batch_id = user_sessions[i][user_sessions[i].size()-1].add_job(&fulljobs[data[j].id]);
+							last_batch_id = user_sessions[i][user_sessions[i].size()-1].add_job(&full_data[data[j].id]);
 						}
 						last_arrival = this_arrival;
 					}
