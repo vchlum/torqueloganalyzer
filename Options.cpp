@@ -16,8 +16,9 @@ namespace options
 	bool simple_stats = false;
 	bool detect_sessions = false;
 	bool validate_job_data = false;
-	std::string queue_filter;
-	std::string user_filter;
+	std::string queue_filter = "";
+	std::string user_filter = "";
+	std::string write_workload = "";
 }
 
 int parse_options(int argc, char *argv[])
@@ -32,6 +33,7 @@ int parse_options(int argc, char *argv[])
 			("validate-job-data", "Validate job data, only valid jobs will be processed.")
 			("single-queue", po::value<string>(), "Only process jobs from a single queue.")
 			("single-user", po::value<string>(), "Only process jobs from a single user.")
+			("write-workload", po::value<string>(), "Write workload to the specified filename.")
 			;
 
 	po::options_description hidden("Hidden options");
@@ -92,6 +94,11 @@ int parse_options(int argc, char *argv[])
 	if (vm.count("single-user"))
 	{
 		options::queue_filter = vm["single-user"].as<string>();
+	}
+
+	if (vm.count("write-workload"))
+	{
+		options::write_workload = vm["write-workload"].as<string>();
 	}
 
 	return 0;

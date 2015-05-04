@@ -25,6 +25,9 @@ struct Data
 	boost::optional<std::string> owner;
 	boost::optional<int> resc_total_cores;
 	boost::optional<std::string> resc_total_mem;
+	boost::optional<std::string> req_walltime;
+	boost::optional<std::string> exec_host;
+	boost::optional<std::string> nodespec;
 
 	Fields() : time_arriv(), time_start(), time_compl(), time_eligb(), queue() {}
     } fields;
@@ -41,6 +44,9 @@ BOOST_FUSION_ADAPT_STRUCT(Data::Fields,
 	(boost::optional<std::string>, owner)
 	(boost::optional<int>, resc_total_cores)
 	(boost::optional<std::string>, resc_total_mem)
+	(boost::optional<std::string>, req_walltime)
+	(boost::optional<std::string>, exec_host)
+	(boost::optional<std::string>, nodespec)
     )
 
 BOOST_FUSION_ADAPT_STRUCT(Data,

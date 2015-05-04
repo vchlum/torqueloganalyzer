@@ -14,6 +14,7 @@ namespace options
     extern bool validate_job_data;
     extern std::string queue_filter;
     extern std::string user_filter;
+    extern std::string write_workload;
 }
 
 int parse_options(int argc, char *argv[]);

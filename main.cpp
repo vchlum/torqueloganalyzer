@@ -131,38 +131,50 @@ struct Batch
 {
 	int64_t first_arrival;
 	int64_t last_completion;
-	vector<FullJob*> job_info;
+	vector<Data*> job_info;
 	pair<unsigned, unsigned> global_id;
 
-	Batch(FullJob *first_job, unsigned sessionID, unsigned batchID)
+	Batch(Data *first_job, unsigned sessionID, unsigned batchID)
 	{
-		first_arrival = *(first_job->event_start->fields.time_arriv);
-		last_completion = *(first_job->event_compl->fields.time_compl);
+		first_arrival = *(first_job->fields.time_arriv);
+		last_completion = *(first_job->fields.time_compl);
 		global_id.first = sessionID;
 		global_id.second = batchID;
 		job_info.push_back(first_job);
 	}
 
-	void add_job(FullJob *job)
+	void add_job(Data *job)
 	{
-		if (first_arrival > *(job->event_start->fields.time_arriv))
-			cerr << "Bad ordering between jobs. Earlier arrival processed after later arrival. (" << *(job->event_start->fields.time_arriv) << ") diff (" << (first_arrival - *(job->event_start->fields.time_arriv)) << ")" << endl;
+		if (first_arrival > *(job->fields.time_arriv))
+			cerr << "Bad ordering between jobs. Earlier arrival processed after later arrival. (" << *(job->fields.time_arriv) << ") diff (" << (first_arrival - *(job->fields.time_arriv)) << ")" << endl;
 
-		if (last_completion < *(job->event_compl->fields.time_compl))
-			last_completion = *(job->event_compl->fields.time_compl);
+		if (last_completion < *(job->fields.time_compl))
+			last_completion = *(job->fields.time_compl);
 
 		job_info.push_back(job);
 	}
 
 	vector< pair<unsigned,unsigned> > strict_after;
+	vector< pair<unsigned,unsigned> > submit_after;
+
 	void add_dep(unsigned session, unsigned batch)
 	{
-		strict_after.push_back(make_pair(session,batch));
+		submit_after.push_back(make_pair(session,batch));
 	}
 
 	void add_dep(pair<unsigned,unsigned> globalID)
 	{
+		submit_after.push_back(globalID);
+	}
+
+	void add_after_dep(pair<unsigned,unsigned> globalID)
+	{
 		strict_after.push_back(globalID);
+	}
+
+	void add_after_dep(unsigned session, unsigned batch)
+	{
+		strict_after.push_back(make_pair(session,batch));
 	}
 
 	string get_batch_label()
@@ -183,26 +195,26 @@ struct Session
 	unsigned session_id;
 	unsigned last_batch_id;
 
-	Session(FullJob* first_job, unsigned sessionID)
+	Session(Data* first_job, unsigned sessionID)
 	{
-		first_arrival = *(first_job->event_start->fields.time_arriv);
-		last_arrival = *(first_job->event_start->fields.time_arriv);
-		last_completion = *(first_job->event_compl->fields.time_compl);
+		first_arrival = first_job->fields.time_arriv.get();
+		last_arrival = first_job->fields.time_arriv.get();
+		last_completion = first_job->fields.time_compl.get();
 		last_batch_id = 0;
 		batches.push_back(Batch(first_job,sessionID,last_batch_id));
 		session_id = sessionID;
 	}
 
-	unsigned add_job(FullJob *job)
+	unsigned add_job(Data* job)
 	{
-		if (first_arrival > *(job->event_start->fields.time_arriv))
-			cerr << "Bad ordering between jobs. Earlier arriva processed after later arrival. (" << *(job->event_start->fields.time_arriv) << ") diff (" << (first_arrival - *(job->event_start->fields.time_arriv)) << ") \"" << job->event_start->id << "\"" << endl;
+		if (first_arrival > job->fields.time_arriv.get())
+			cerr << "Bad ordering between jobs. Earlier arriva processed after later arrival. (" << *(job->fields.time_arriv) << ") diff (" << (first_arrival - *(job->fields.time_arriv)) << ") \"" << job->id << "\"" << endl;
 
-		last_arrival = *(job->event_start->fields.time_arriv);
-		if (last_completion < *(job->event_compl->fields.time_compl))
-			last_completion = *(job->event_compl->fields.time_compl);
+		last_arrival = job->fields.time_arriv.get();
+		if (last_completion < job->fields.time_compl.get())
+			last_completion = job->fields.time_compl.get();
 
-		if (batches[batches.size()-1].last_completion < *(job->event_start->fields.time_arriv) || batches[batches.size()-1].first_arrival > *(job->event_compl->fields.time_compl))
+		if (batches[batches.size()-1].last_completion < *(job->fields.time_arriv) || batches[batches.size()-1].first_arrival > *(job->fields.time_compl))
 			batches.push_back(Batch(job,session_id,++last_batch_id));
 		else
 			batches[batches.size()-1].add_job(job);
@@ -229,6 +241,16 @@ struct Session
 		batches[0].add_dep(globalID);
 	}
 
+	void add_after_dep(pair<unsigned,unsigned> globalID)
+	{
+		batches[0].add_after_dep(globalID);
+	}
+
+	void add_after_dep(unsigned session, unsigned batch)
+	{
+		batches[0].add_after_dep(session,batch);
+	}
+
 	string get_session_label()
 	{
 		stringstream s;
@@ -238,14 +260,7 @@ struct Session
 };
 
 map<string, vector<Session> > user_sessions;
-
-bool compare_jobs_arrival(const Data& left, const Data& right)
-{
-	if (left.fields.time_arriv && right.fields.time_arriv)
-		return left.fields.time_arriv.get() < right.fields.time_arriv.get();
-	else
-		return left.id < right.id;
-}
+bool compare_job_arrival(Data* left, Data *right);
 
 int main(int argc, char *argv[])
 {
@@ -271,6 +286,8 @@ int main(int argc, char *argv[])
 		}
 		finish_processing();
 	}
+
+	cout << "Finished reading input data." << endl;
 
 	// generate an overview of collected data
 	if (options::simple_stats)
@@ -299,25 +316,193 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
+	cout << "Processing and filtering job information." << endl;
 	construct_fulljob_information();
+	cout << "Finished processing job information." << endl;
 
 	// detect sessions in the workload
 	if (options::detect_sessions)
 	{
-		//sort(data.begin(),data.end(),compare_jobs_arrival);
-
 		fstream stats;
 		stats.open("session_stats.dat",ios_base::out | ios_base::trunc);
 
-		for (auto i : data_by_user)
+		// go over the pre-processed user data, user-by-user
+		for (auto& i : data_by_user)
 		{
-			auto jobs = i.second; // vector of Data*
-			for (auto j : jobs)
+			string username = i.first.substr(0,i.first.find('@'));
+			unsigned last_session_id = 0;
+			unsigned last_batch_id = 0;
+
+			user_sessions.insert(make_pair(i.first,vector<Session>()));
+
+			int64_t last_arrival = 0;
+			int64_t this_arrival = 0;
+
+			vector<Session>& user_session = user_sessions[i.first];
+
+			for (auto& j : i.second)
 			{
-
+				this_arrival = *(j->fields.time_arriv);
+				if (last_arrival == 0 || this_arrival - last_arrival > HOUR)
+				{ // create a new session
+					user_session.push_back(Session(j,last_session_id));
+					if (last_session_id > 0)
+					{
+						user_session[user_session.size()-1].add_after_dep(last_session_id-1,last_batch_id);
+						for (size_t k = 0; k < user_session.size(); k++)
+						{
+							size_t last_batch = user_session[k].batches.size()-1;
+							if (user_session[k].batches.size() == 0)
+								cerr << "Error 0 batches detected" << endl;
+							if (user_session[k].batches[last_batch].last_completion < this_arrival)
+								user_session[user_session.size()-1].add_follows_dep(user_session[k].batches[last_batch].global_id);
+						}
+					}
+					++last_session_id;
+					last_batch_id = 0;
+				}
+				else if (this_arrival - last_arrival <= HOUR)
+				{ // same session
+					last_batch_id = user_session[user_session.size()-1].add_job(j);
+				}
+				last_arrival = this_arrival;
 			}
-		}
 
+			// detect batches inside sessions
+			// setup dependencies between batches
+
+			stringstream filename;
+			filename << "user_" << username << ".dot";
+
+			fstream f;
+			f.open(filename.str(),ios_base::out | ios_base::trunc);
+
+			int64_t total_jobs = 0;
+			int64_t total_batches = 0;
+			int64_t total_sessions = 0;
+
+			f << "digraph main { " << endl;
+			for (size_t j = 0; j < user_session.size(); j++)
+			{
+				user_session[j].setup_internal_dependencies();
+
+				f << "subgraph cluster_" << user_session[j].get_session_label() << " {" << endl;
+				f << "color = black;" << endl;
+				f << "label = \"" << user_session[j].get_session_label() << "\";" << endl;
+				for (size_t k = 0; k < user_session[j].batches.size(); k++)
+				{
+					f << " \"" << user_session[j].batches[k].get_batch_label() << "\"";
+					total_jobs += user_session[j].batches[k].job_info.size();
+					total_batches++;
+				}
+				f << ";" << endl;
+				f << "}" << endl;
+				total_sessions++;
+			}
+
+			for (size_t j = 0; j < user_session.size(); j++)
+			{
+				for (size_t k = 0; k < user_session[j].batches.size(); k++)
+				{
+					for (size_t l = 0; l < user_session[j].batches[k].strict_after.size(); l++)
+					{
+						unsigned ses = user_session[j].batches[k].strict_after[l].first;
+						unsigned bat = user_session[j].batches[k].strict_after[l].second;
+						stringstream s;
+						s << "Batch_" << ses << "_" << bat;
+						f << "\"" << s.str() << "\" -> \"" << user_session[j].batches[k].get_batch_label() << "\";" << endl;
+					}
+				}
+			}
+
+			f << "}" << endl;
+			f.close();
+
+			if (options::write_workload != "")
+			{
+				fstream base_workload;
+				base_workload.open(options::write_workload+".dyn",ios_base::out | ios_base::trunc);
+
+				int user_id = 1;
+
+				// store a description file
+				for (auto& i : data_by_user)
+				{
+					base_workload << username << "\t" << "dynamic" << endl;
+
+					fstream user_jobs;
+					user_jobs.open(options::write_workload+".dyn_"+username,ios_base::out | ios_base::trunc);
+
+					for (auto& j : i.second)
+					{
+						string jobid = j->id.substr(0,i.first.find('@'));
+						int hours = 0;
+						int minutes = 0;
+						int seconds = 0;
+						sscanf(j->fields.req_walltime.get().c_str(),"%d:%d:%d",&hours,&minutes,&seconds);
+
+						string processed_exec_host = j->fields.exec_host.get();
+
+						size_t start = processed_exec_host.find('/');
+						while (start != processed_exec_host.npos)
+						{
+							size_t end = processed_exec_host.find('+');
+							processed_exec_host.erase(start,end-start);
+							processed_exec_host[start] = ',';
+							start = processed_exec_host.find('/');
+						}
+
+						user_jobs << jobid << " " << j->fields.time_arriv.get() << " " << (j->fields.time_start.get()-j->fields.time_arriv.get()) << " " << (j->fields.time_compl.get()-j->fields.time_start.get()) <<
+							  " " << j->fields.resc_total_cores.get() << " " << "1" << " " << "1024" << " " << j->fields.resc_total_cores.get() << " " << ((hours*60+minutes)*60+seconds) <<
+							  " " << "419430400" << " " << "1" << " " << user_id << " " << "1" << " " << "1 -1 1 1 1" << " " << "{" << processed_exec_host << "}" << " " << j->fields.queue.get() << " " << j->fields.nodespec.get() << endl;
+					}
+
+					fstream sessions,batches;
+					sessions.open(options::write_workload+".dyn_"+username+"_sessions",ios_base::out | ios_base::trunc);
+					batches.open(options::write_workload+".dyn_"+username+"_batches",ios_base::out | ios_base::trunc);
+
+					for (auto& j : user_session)
+					{
+						sessions << j.session_id << "\t" << j.first_arrival << "\t" << j.last_arrival << "\t" << j.last_completion << endl;
+
+						for (auto& k : j.batches)
+						{
+							batches << k.global_id.first << "\t" << k.global_id.second << "\t" << k.first_arrival << "\t" << k.last_completion;
+							for (auto& l : k.submit_after)
+							{
+								batches << "\tfollows:" << l.first << "|" << l.second;
+							}
+
+							for (auto& l : k.strict_after)
+							{
+								batches << "\tafter:" << l.first << "|" << l.second;
+							}
+
+							for (auto& l : ((Batch)k).job_info)
+							{
+								batches << "\tjob:" << l->id;
+							}
+							batches << endl;
+
+						}
+					}
+					sessions.close();
+					batches.close();
+
+					++user_id;
+					user_jobs.close();
+				}
+				// store each user jobs into a file in SWF format
+				// store sessions
+				// store batches
+
+				base_workload.close();
+			}
+
+			stats << i.first << " " << total_jobs << " " << total_batches << " " << total_sessions << " " << (double)total_jobs/total_batches << " " << (double)total_batches/total_sessions << " " << (double)total_jobs/total_sessions << endl;
+
+		}
+#if 0
 		// iterate over users
 		for (auto i : users)
 		{
@@ -425,7 +610,7 @@ int main(int argc, char *argv[])
 
 			stats << i << " " << total_jobs << " " << total_batches << " " << total_sessions << " " << (double)total_jobs/total_batches << " " << (double)total_batches/total_sessions << " " << (double)total_jobs/total_sessions << endl;
 		}
-
+#endif
 		stats.close();
 	}
 

@@ -39,6 +39,9 @@ struct grammar : qi::grammar<it, Data(), Skipper> {
     auto owner = bind(&Data::Fields::owner, _val);
     auto resc_total_cores = bind(&Data::Fields::resc_total_cores, _val);
     auto resc_total_mem = bind(&Data::Fields::resc_total_mem, _val);
+    auto req_walltime = bind(&Data::Fields::req_walltime, _val);
+    auto exec_host = bind(&Data::Fields::exec_host, _val);
+    auto nodespec = bind(&Data::Fields::nodespec, _val);
 
 	//other  = lexeme [ +(graph-'=') ] >> '=' >> (real_|int_|text);
     other  = lexeme [ +(graph-'=') ] >> '=' >> text;
@@ -52,6 +55,9 @@ struct grammar : qi::grammar<it, Data(), Skipper> {
 		  | ("owner" >> lit('=') >> text) [ owner = _1 ]
 		  | ("resc_req_total.procs" >> lit('=') >> int_) [ resc_total_cores = _1 ]
 		  | ("resc_req_total.mem" >> lit('=') >> text) [ resc_total_mem = _1 ]
+		  | ("resc_req_total.walltime" >> lit('=') >> text) [ req_walltime = _1 ]
+		  | ("exec_host" >> lit('=') >> text) [ exec_host = _1 ]
+		  | ("Resource_List.processed_nodes" >> lit('=') >> text) [ nodespec = _1 ]
 		  | other
 		  );
 

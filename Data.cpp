@@ -182,7 +182,7 @@ void construct_fulljob_information()
 		if (job_blacklist.find(data[i].id) != job_blacklist.end())
 			continue;
 
-		auto j = full_data.find(data[i].id);
+		std::map<std::string, FullJob>::iterator j = full_data.find(data[i].id);
 		if (j == full_data.end())
 		{
 			full_data.insert(make_pair(data[i].id,FullJob()));
@@ -202,7 +202,8 @@ void construct_fulljob_information()
 		if (data[i].event == 'E')
 		{
 			j->second.event_compl = &data[i];
-			auto it = data_by_user.insert(std::make_pair(data[i].fields.owner.get(),std::vector<Data*>()));
+			std::pair<std::map< std::string,std::vector<Data*> >::iterator,bool> it;
+			it = data_by_user.insert(std::make_pair(data[i].fields.owner.get(),std::vector<Data*>()));
 			if (options::validate_job_data)
 			{
 				if (validate_job(data[i].id))
@@ -215,7 +216,7 @@ void construct_fulljob_information()
 		}
 	}
 
-	for (auto i : data_by_user)
+	for (auto& i : data_by_user)
 	{
 		sort(i.second.begin(),i.second.end(),compare_job_arrival);
 	}
