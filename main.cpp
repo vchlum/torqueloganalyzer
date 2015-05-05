@@ -418,90 +418,93 @@ int main(int argc, char *argv[])
 			f << "}" << endl;
 			f.close();
 
-			if (options::write_workload != "")
-			{
-				fstream base_workload;
-				base_workload.open(options::write_workload+".dyn",ios_base::out | ios_base::trunc);
-
-				int user_id = 1;
-
-				// store a description file
-				for (auto& i : data_by_user)
-				{
-					base_workload << username << "\t" << "dynamic" << endl;
-
-					fstream user_jobs;
-					user_jobs.open(options::write_workload+".dyn_"+username,ios_base::out | ios_base::trunc);
-
-					for (auto& j : i.second)
-					{
-						string jobid = j->id.substr(0,i.first.find('@'));
-						int hours = 0;
-						int minutes = 0;
-						int seconds = 0;
-						sscanf(j->fields.req_walltime.get().c_str(),"%d:%d:%d",&hours,&minutes,&seconds);
-
-						string processed_exec_host = j->fields.exec_host.get();
-
-						size_t start = processed_exec_host.find('/');
-						while (start != processed_exec_host.npos)
-						{
-							size_t end = processed_exec_host.find('+');
-							processed_exec_host.erase(start,end-start);
-							processed_exec_host[start] = ',';
-							start = processed_exec_host.find('/');
-						}
-
-						user_jobs << jobid << " " << j->fields.time_arriv.get() << " " << (j->fields.time_start.get()-j->fields.time_arriv.get()) << " " << (j->fields.time_compl.get()-j->fields.time_start.get()) <<
-							  " " << j->fields.resc_total_cores.get() << " " << "1" << " " << "1024" << " " << j->fields.resc_total_cores.get() << " " << ((hours*60+minutes)*60+seconds) <<
-							  " " << "419430400" << " " << "1" << " " << user_id << " " << "1" << " " << "1 -1 1 1 1" << " " << "{" << processed_exec_host << "}" << " " << j->fields.queue.get() << " " << j->fields.nodespec.get() << endl;
-					}
-
-					fstream sessions,batches;
-					sessions.open(options::write_workload+".dyn_"+username+"_sessions",ios_base::out | ios_base::trunc);
-					batches.open(options::write_workload+".dyn_"+username+"_batches",ios_base::out | ios_base::trunc);
-
-					for (auto& j : user_session)
-					{
-						sessions << j.session_id << "\t" << j.first_arrival << "\t" << j.last_arrival << "\t" << j.last_completion << endl;
-
-						for (auto& k : j.batches)
-						{
-							batches << k.global_id.first << "\t" << k.global_id.second << "\t" << k.first_arrival << "\t" << k.last_completion;
-							for (auto& l : k.submit_after)
-							{
-								batches << "\tfollows:" << l.first << "|" << l.second;
-							}
-
-							for (auto& l : k.strict_after)
-							{
-								batches << "\tafter:" << l.first << "|" << l.second;
-							}
-
-							for (auto& l : ((Batch)k).job_info)
-							{
-								batches << "\tjob:" << l->id;
-							}
-							batches << endl;
-
-						}
-					}
-					sessions.close();
-					batches.close();
-
-					++user_id;
-					user_jobs.close();
-				}
-				// store each user jobs into a file in SWF format
-				// store sessions
-				// store batches
-
-				base_workload.close();
-			}
-
 			stats << i.first << " " << total_jobs << " " << total_batches << " " << total_sessions << " " << (double)total_jobs/total_batches << " " << (double)total_batches/total_sessions << " " << (double)total_jobs/total_sessions << endl;
-
 		}
+
+		if (options::write_workload != "")
+		{
+			fstream base_workload;
+			base_workload.open(options::write_workload+".dyn",ios_base::out | ios_base::trunc);
+
+			int user_id = 1;
+
+			// store a description file
+			for (auto& i : data_by_user)
+			{
+				string username = i.first.substr(0,i.first.find('@'));
+				vector<Session>& user_session = user_sessions[i.first];
+				base_workload << username << "\t" << "dynamic" << endl;
+
+				fstream user_jobs;
+				user_jobs.open(options::write_workload+".dyn_"+username,ios_base::out | ios_base::trunc);
+
+				for (auto& j : i.second)
+				{
+					string jobid = j->id.substr(0,i.first.find('@'));
+					int hours = 0;
+					int minutes = 0;
+					int seconds = 0;
+					sscanf(j->fields.req_walltime.get().c_str(),"%d:%d:%d",&hours,&minutes,&seconds);
+
+					string processed_exec_host = j->fields.exec_host.get();
+
+					size_t start = processed_exec_host.find('/');
+					while (start != processed_exec_host.npos)
+					{
+						size_t end = processed_exec_host.find('+');
+						processed_exec_host.erase(start,end-start);
+						processed_exec_host[start] = ',';
+						start = processed_exec_host.find('/');
+					}
+
+					user_jobs << jobid << " " << j->fields.time_arriv.get() << " " << (j->fields.time_start.get()-j->fields.time_arriv.get()) << " " << (j->fields.time_compl.get()-j->fields.time_start.get()) <<
+						  " " << j->fields.resc_total_cores.get() << " " << "1" << " " << "1024" << " " << j->fields.resc_total_cores.get() << " " << ((hours*60+minutes)*60+seconds) <<
+						  " " << "419430400" << " " << "1" << " " << user_id << " " << "1" << " " << "1 -1 1 1 1" << " " << "{" << processed_exec_host << "}" << " " << j->fields.queue.get() << " " << j->fields.nodespec.get() << endl;
+				}
+
+				fstream sessions,batches;
+				sessions.open(options::write_workload+".dyn_"+username+"_sessions",ios_base::out | ios_base::trunc);
+				batches.open(options::write_workload+".dyn_"+username+"_batches",ios_base::out | ios_base::trunc);
+
+				for (auto& j : user_session)
+				{
+					sessions << j.session_id << "\t" << j.first_arrival << "\t" << j.last_arrival << "\t" << j.last_completion << endl;
+
+					for (auto& k : j.batches)
+					{
+						batches << k.global_id.first << "\t" << k.global_id.second << "\t" << k.first_arrival << "\t" << k.last_completion;
+						for (auto& l : k.submit_after)
+						{
+							batches << "\tfollows:" << l.first << "|" << l.second;
+						}
+
+						for (auto& l : k.strict_after)
+						{
+							batches << "\tafter:" << l.first << "|" << l.second;
+						}
+
+						for (auto& l : ((Batch)k).job_info)
+						{
+							batches << "\tjob:" << l->id;
+						}
+						batches << endl;
+
+					}
+				}
+				sessions.close();
+				batches.close();
+
+				++user_id;
+				user_jobs.close();
+			}
+			// store each user jobs into a file in SWF format
+			// store sessions
+			// store batches
+
+			base_workload.close();
+		}
+
+
 #if 0
 		// iterate over users
 		for (auto i : users)
