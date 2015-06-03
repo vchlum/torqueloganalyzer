@@ -154,27 +154,27 @@ struct Batch
 		job_info.push_back(job);
 	}
 
-	vector< pair<unsigned,unsigned> > strict_after;
-	vector< pair<unsigned,unsigned> > submit_after;
+	vector< pair<unsigned,unsigned> > after_arrival;
+	vector< pair<unsigned,unsigned> > after_completion;
 
-	void add_dep(unsigned session, unsigned batch)
+	void add_completion_dep(unsigned session, unsigned batch)
 	{
-		submit_after.push_back(make_pair(session,batch));
+		after_completion.push_back(make_pair(session,batch));
 	}
 
-	void add_dep(pair<unsigned,unsigned> globalID)
+	void add_completion_dep(pair<unsigned,unsigned> globalID)
 	{
-		submit_after.push_back(globalID);
+		after_completion.push_back(globalID);
 	}
 
-	void add_after_dep(pair<unsigned,unsigned> globalID)
+	void add_arrival_dep(pair<unsigned,unsigned> globalID)
 	{
-		strict_after.push_back(globalID);
+		after_arrival.push_back(globalID);
 	}
 
-	void add_after_dep(unsigned session, unsigned batch)
+	void add_arrival_dep(unsigned session, unsigned batch)
 	{
-		strict_after.push_back(make_pair(session,batch));
+		after_arrival.push_back(make_pair(session,batch));
 	}
 
 	string get_batch_label()
@@ -227,28 +227,28 @@ struct Session
 		for (size_t i = 0; i < batches.size(); i++)
 		{
 			if (i > 0)
-				batches[i].add_dep(session_id,batches[i-1].global_id.second);
+				batches[i].add_completion_dep(session_id,batches[i-1].global_id.second);
 		}
 	}
 
-	void add_follows_dep(unsigned session, unsigned batch)
+	void add_completion_dep(unsigned session, unsigned batch)
 	{
-		batches[0].add_dep(session,batch);
+		batches[0].add_completion_dep(session,batch);
 	}
 
-	void add_follows_dep(pair<unsigned,unsigned> globalID)
+	void add_completion_dep(pair<unsigned,unsigned> globalID)
 	{
-		batches[0].add_dep(globalID);
+		batches[0].add_completion_dep(globalID);
 	}
 
-	void add_after_dep(pair<unsigned,unsigned> globalID)
+	void add_arrival_dep(pair<unsigned,unsigned> globalID)
 	{
-		batches[0].add_after_dep(globalID);
+		batches[0].add_arrival_dep(globalID);
 	}
 
-	void add_after_dep(unsigned session, unsigned batch)
+	void add_arrival_dep(unsigned session, unsigned batch)
 	{
-		batches[0].add_after_dep(session,batch);
+		batches[0].add_arrival_dep(session,batch);
 	}
 
 	string get_session_label()
@@ -348,14 +348,14 @@ int main(int argc, char *argv[])
 					user_session.push_back(Session(j,last_session_id));
 					if (last_session_id > 0)
 					{
-						user_session[user_session.size()-1].add_after_dep(last_session_id-1,last_batch_id);
+						user_session[user_session.size()-1].add_arrival_dep(last_session_id-1,last_batch_id);
 						for (size_t k = 0; k < user_session.size(); k++)
 						{
 							size_t last_batch = user_session[k].batches.size()-1;
 							if (user_session[k].batches.size() == 0)
 								cerr << "Error 0 batches detected" << endl;
 							if (user_session[k].batches[last_batch].last_completion < this_arrival)
-								user_session[user_session.size()-1].add_follows_dep(user_session[k].batches[last_batch].global_id);
+								user_session[user_session.size()-1].add_completion_dep(user_session[k].batches[last_batch].global_id);
 						}
 					}
 					++last_session_id;
@@ -404,10 +404,10 @@ int main(int argc, char *argv[])
 			{
 				for (size_t k = 0; k < user_session[j].batches.size(); k++)
 				{
-					for (size_t l = 0; l < user_session[j].batches[k].strict_after.size(); l++)
+					for (size_t l = 0; l < user_session[j].batches[k].after_arrival.size(); l++)
 					{
-						unsigned ses = user_session[j].batches[k].strict_after[l].first;
-						unsigned bat = user_session[j].batches[k].strict_after[l].second;
+						unsigned ses = user_session[j].batches[k].after_arrival[l].first;
+						unsigned bat = user_session[j].batches[k].after_arrival[l].second;
 						stringstream s;
 						s << "Batch_" << ses << "_" << bat;
 						f << "\"" << s.str() << "\" -> \"" << user_session[j].batches[k].get_batch_label() << "\";" << endl;
@@ -473,14 +473,14 @@ int main(int argc, char *argv[])
 					for (auto& k : j.batches)
 					{
 						batches << k.global_id.first << "\t" << k.global_id.second << "\t" << k.first_arrival << "\t" << k.last_completion;
-						for (auto& l : k.submit_after)
+						for (auto& l : k.after_arrival)
 						{
-							batches << "\tfollows:" << l.first << "|" << l.second;
+							batches << "\tafter_arrival:" << l.first << "|" << l.second;
 						}
 
-						for (auto& l : k.strict_after)
+						for (auto& l : k.after_completion)
 						{
-							batches << "\tafter:" << l.first << "|" << l.second;
+							batches << "\tafter_completion:" << l.first << "|" << l.second;
 						}
 
 						for (auto& l : ((Batch)k).job_info)
