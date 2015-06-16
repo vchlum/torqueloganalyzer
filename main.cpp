@@ -440,7 +440,7 @@ int main(int argc, char *argv[])
 
 				for (auto& j : i.second)
 				{
-					string jobid = j->id.substr(0,i.first.find('@'));
+					string jobid = j->id.substr(0,j->id.find('.'));
 					int hours = 0;
 					int minutes = 0;
 					int seconds = 0;
@@ -468,7 +468,13 @@ int main(int argc, char *argv[])
 
 				for (auto& j : user_session)
 				{
-					sessions << j.session_id << "\t" << j.first_arrival << "\t" << j.last_arrival << "\t" << j.last_completion << endl;
+					time_t session_start = j.first_arrival;
+					struct tm ts;
+
+					ts = *localtime(&session_start);
+
+					sessions << j.session_id << "\t" << j.first_arrival << "\t" << j.last_arrival << "\t" << j.last_completion << "\t"
+						 << ts.tm_wday << "\t" << ts.tm_hour << "\t" << ts.tm_min << endl;
 
 					for (auto& k : j.batches)
 					{
@@ -485,7 +491,7 @@ int main(int argc, char *argv[])
 
 						for (auto& l : ((Batch)k).job_info)
 						{
-							batches << "\tjob:" << l->id;
+							batches << "\tjob:" << l->id.substr(0,l->id.find('.'));
 						}
 						batches << endl;
 
