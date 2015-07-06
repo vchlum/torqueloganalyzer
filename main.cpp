@@ -474,7 +474,12 @@ int main(int argc, char *argv[])
 					ts = *localtime(&session_start);
 
 					sessions << j.session_id << "\t" << j.first_arrival << "\t" << j.last_arrival << "\t" << j.last_completion << "\t"
-						 << ts.tm_wday << "\t" << ts.tm_hour << "\t" << ts.tm_min << endl;
+						 << ts.tm_wday << "\t" << ts.tm_hour << "\t" << ts.tm_min;
+
+					time_t session_end = j.last_arrival;
+					ts = *localtime(&session_end);
+
+					sessions << "\t" << ts.tm_wday << "\t" << ts.tm_hour << "\t" << ts.tm_min << endl;
 
 					for (auto& k : j.batches)
 					{
