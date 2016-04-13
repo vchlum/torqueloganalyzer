@@ -10,95 +10,57 @@
 #include <boost/spirit/include/qi.hpp>
 namespace qi = boost::spirit::qi;
 
-std::vector<std::future<Data>> futures;
-
-static size_t curr_thread = 0;
-
-std::vector<Data> data;
+std::vector<JobData> data;
 std::set<std::string> users;
 std::map<std::string, FullJob> full_data;
 std::set<std::string> job_blacklist;
-std::map<std::string, std::vector<Data*> > data_by_user;
+std::map<std::string, std::vector<JobData*> > data_by_user;
 
 void callback(const char * const begin, const char * const end)
 {
-	std::packaged_task<Data()> task([begin,end]() {
-		const std::string input(begin,static_cast<size_t>(end-begin));
-		using It = std::string::const_iterator;
-		It f(input.begin()), l(input.end());
-		Data parsed;
+  const std::string input(begin,static_cast<size_t>(end-begin));
+  using It = std::string::const_iterator;
+  It f(input.begin()), l(input.end());
+  JobData parsed;
 
-		bool ok = qi::phrase_parse(f,l,grammar<It>(),qi::space,parsed);
-		if (!ok) {
-		    std::cout << "Parsing failed" << std::endl;
-		}
+  bool ok = qi::phrase_parse(f,l,grammar<It>(),qi::space,parsed);
+  if (!ok) {
+      std::cout << "Parsing failed" << std::endl;
+      return;
+  }
 
-		return parsed;
-	});
-
-	if (futures.size() < options::maximum_threads)
-	{
-		futures.push_back(task.get_future());
-		std::thread(std::move(task)).detach();
-	}
-	else
-	{
-		data.push_back(futures[curr_thread % options::maximum_threads].get());
-		if (data[data.size()-1].fields.owner)
-			users.insert(*(data[data.size()-1].fields.owner));
-
-		futures[curr_thread % options::maximum_threads] = task.get_future();
-		std::thread(std::move(task)).detach();
-	}
-
-	curr_thread++;
-}
-
-void finish_processing()
-{
-	size_t tail = curr_thread;
-
-	do
-	{
-		data.push_back(futures[tail % options::maximum_threads].get());
-		if (data[data.size()-1].fields.owner)
-			users.insert(*(data[data.size()-1].fields.owner));
-
-		tail++;
-	}
-	while (tail % options::maximum_threads != curr_thread % options::maximum_threads);
-
-	futures.clear();
-	curr_thread = 0;
+  data.push_back(parsed);
+  if (data[data.size()-1].fields.owner)
+    users.insert(*(data[data.size()-1].fields.owner));
 }
 
 void job_preprocess()
 {
-    for (size_t i = 0; i < data.size(); ++i)
-    {
-	if (data[i].fields.time_start && *(data[i].fields.time_start) == 0)
-	    continue;
+  for (size_t i = 0; i < data.size(); ++i)
+  {
+    if (data[i].fields.time_start && *(data[i].fields.time_start) == 0)
+        continue;
 
-	if (data[i].fields.time_compl && *(data[i].fields.time_compl) == 0)
-	    continue;
+    if (data[i].fields.time_compl && *(data[i].fields.time_compl) == 0)
+        continue;
 
-	if (data[i].fields.time_arriv && *(data[i].fields.time_arriv) == 0)
-	    continue;
+    if (data[i].fields.time_arriv && *(data[i].fields.time_arriv) == 0)
+        continue;
 
-	if (options::queue_filter.size() != 0)
-	    if (data[i].fields.queue && (*data[i].fields.queue).substr(0,options::queue_filter.size()) != options::queue_filter)
-		continue;
+    if (options::queue_filter.size() != 0)
+        if (data[i].fields.queue && (*data[i].fields.queue).substr(0,options::queue_filter.size()) != options::queue_filter)
+      continue;
 
-	if (options::user_filter.size() != 0)
-	    if (data[i].fields.owner && (*data[i].fields.owner).substr(0,options::user_filter.size()) == options::user_filter)
-		continue;
+    if (options::user_filter.size() != 0)
+        if (data[i].fields.owner && (*data[i].fields.owner).substr(0,options::user_filter.size()) == options::user_filter)
+      continue;
 
-	if (data[i].event == 'S')
-	    job_blacklist.insert(data[i].id);
+    if (data[i].event == 'S')
+        job_blacklist.insert(data[i].id);
 
-	if (data[i].event == 'E' || data[i].event == 'A' || data[i].event == 'D')
-	    job_blacklist.erase(data[i].id);
-    }
+    if (data[i].event == 'E' || data[i].event == 'A' || data[i].event == 'D')
+        job_blacklist.erase(data[i].id);
+  }
 }
 
 bool validate_job(std::string jobid)
@@ -111,7 +73,7 @@ bool validate_job(std::string jobid)
 	if (full_data[jobid].event_compl == NULL)
 		return false;
 
-	Data* fulldata = full_data[jobid].event_compl;
+  JobData* fulldata = full_data[jobid].event_compl;
 
 	// time information
 	if (!fulldata->fields.time_arriv)
@@ -168,7 +130,7 @@ bool validate_job(std::string jobid)
 	return true;
 }
 
-bool compare_job_arrival(Data* left, Data *right)
+bool compare_job_arrival(JobData* left, JobData *right)
 {
 	return left->fields.time_arriv.get() < right->fields.time_arriv.get();
 }
@@ -202,8 +164,8 @@ void construct_fulljob_information()
 		if (data[i].event == 'E')
 		{
 			j->second.event_compl = &data[i];
-			std::pair<std::map< std::string,std::vector<Data*> >::iterator,bool> it;
-			it = data_by_user.insert(std::make_pair(data[i].fields.owner.get(),std::vector<Data*>()));
+      std::pair<std::map< std::string,std::vector<JobData*> >::iterator,bool> it;
+      it = data_by_user.insert(std::make_pair(data[i].fields.owner.get(),std::vector<JobData*>()));
 			if (options::validate_job_data)
 			{
 				if (validate_job(data[i].id))

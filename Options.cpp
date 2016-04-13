@@ -27,7 +27,6 @@ int parse_options(int argc, char *argv[])
 	desc.add_options()
 			("help", "Display this help.")
 			("simple-stats", "Print a summary overview of the processed events.")
-			("max-threads", po::value<size_t>(), "Set the number of threads used for parsing the input.")
 			("single-user", po::value<string>(), "print information about a single user")
 			("detect-sessions", "Print sessions detected in the workload.")
 			("validate-job-data", "Validate job data, only valid jobs will be processed.")
@@ -55,15 +54,6 @@ int parse_options(int argc, char *argv[])
 	{
 		cout << desc << endl;
 		return 1;
-	}
-
-	if (vm.count("maximum_threads"))
-	{
-		options::maximum_threads = vm["maximum_threads"].as<size_t>();
-	}
-	else
-	{
-		options::maximum_threads = 1;
 	}
 
 	if (vm.count("input-file"))

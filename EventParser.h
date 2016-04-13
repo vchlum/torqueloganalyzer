@@ -15,7 +15,7 @@ namespace qi = boost::spirit::qi;
 namespace phx = boost::phoenix;
 
 template <typename it, typename Skipper = qi::space_type>
-struct grammar : qi::grammar<it, Data(), Skipper> {
+struct grammar : qi::grammar<it, JobData(), Skipper> {
     grammar() : grammar::base_type(start), other(), event(), text(), id(), timestamp(), fields(), start() {
 	using namespace qi;
 	timestamp = lexeme [ +(~qi::char_(' ')) >> qi::char_(' ') >> +(~qi::char_(';')) ];
@@ -31,17 +31,17 @@ struct grammar : qi::grammar<it, Data(), Skipper> {
 	id     = lexeme [ *~char_(';') ];
 	event  = lexeme [ char_("QSEDARC") ];
 
-    auto time_arriv = bind(&Data::Fields::time_arriv, _val);
-    auto time_start = bind(&Data::Fields::time_start, _val);
-    auto time_compl = bind(&Data::Fields::time_compl, _val);
-    auto time_eligb = bind(&Data::Fields::time_eligb, _val);
-    auto queue = bind(&Data::Fields::queue, _val);
-    auto owner = bind(&Data::Fields::owner, _val);
-    auto resc_total_cores = bind(&Data::Fields::resc_total_cores, _val);
-    auto resc_total_mem = bind(&Data::Fields::resc_total_mem, _val);
-    auto req_walltime = bind(&Data::Fields::req_walltime, _val);
-    auto exec_host = bind(&Data::Fields::exec_host, _val);
-    auto nodespec = bind(&Data::Fields::nodespec, _val);
+    auto time_arriv = bind(&JobData::Fields::time_arriv, _val);
+    auto time_start = bind(&JobData::Fields::time_start, _val);
+    auto time_compl = bind(&JobData::Fields::time_compl, _val);
+    auto time_eligb = bind(&JobData::Fields::time_eligb, _val);
+    auto queue = bind(&JobData::Fields::queue, _val);
+    auto owner = bind(&JobData::Fields::owner, _val);
+    auto resc_total_cores = bind(&JobData::Fields::resc_total_cores, _val);
+    auto resc_total_mem = bind(&JobData::Fields::resc_total_mem, _val);
+    auto req_walltime = bind(&JobData::Fields::req_walltime, _val);
+    auto exec_host = bind(&JobData::Fields::exec_host, _val);
+    auto nodespec = bind(&JobData::Fields::nodespec, _val);
 
 	//other  = lexeme [ +(graph-'=') ] >> '=' >> (real_|int_|text);
     other  = lexeme [ +(graph-'=') ] >> '=' >> text;
@@ -72,8 +72,8 @@ struct grammar : qi::grammar<it, Data(), Skipper> {
     qi::rule<it, char(),                         Skipper> event;
     qi::rule<it, std::string(),                  Skipper> text, id;
     qi::rule<it, std::string(),                  Skipper> timestamp;
-    qi::rule<it, Data::Fields(),                 Skipper> fields;
-    qi::rule<it, Data(),                         Skipper> start;
+    qi::rule<it, JobData::Fields(),                 Skipper> fields;
+    qi::rule<it, JobData(),                         Skipper> start;
 };
 
 

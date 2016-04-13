@@ -6,7 +6,6 @@
 
 namespace options
 {
-    extern size_t maximum_threads;
     extern std::vector<std::string> inputs;
     extern std::string single_user;
     extern bool simple_stats;

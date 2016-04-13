@@ -14,7 +14,7 @@ SOURCES += main.cpp \
     Data.cpp \
     Options.cpp \
     SimpleStats.cpp \
-    Sessions.cpp
+    workloadadaptation.cpp
 
 HEADERS += \
     FastLineReader.h \
@@ -22,6 +22,6 @@ HEADERS += \
     Data.h \
     Options.h \
     SimpleStats.h \
-    Sessions.h \
-    Utils.h
+    Utils.h \
+    workloadadaptation.h
 
