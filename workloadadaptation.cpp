@@ -3,6 +3,7 @@
 #include "Utils.h"
 #include <sstream>
 #include <fstream>
+#include <iostream>
 #include "Options.h"
 using namespace std;
 

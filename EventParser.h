@@ -58,6 +58,11 @@ struct grammar : qi::grammar<it, JobData(), Skipper> {
 		  | ("resc_req_total.walltime" >> lit('=') >> text) [ req_walltime = _1 ]
 		  | ("exec_host" >> lit('=') >> text) [ exec_host = _1 ]
 		  | ("Resource_List.processed_nodes" >> lit('=') >> text) [ nodespec = _1 ]
+		  | ("user" >> lit('=') >> text) [ owner = _1 ]
+		  | ("Resource_List.ncpus" >> lit('=') >> int_) [ resc_total_cores = _1 ]
+		  | ("Resource_List.mem" >> lit('=') >> text) [ resc_total_mem = _1 ]
+		  | ("Resource_List.walltime" >> lit('=') >> text) [ req_walltime = _1 ]
+		  | ("Resource_List.select" >> lit('=') >> text) [ nodespec = _1 ]
 		  | other
 		  );
 
