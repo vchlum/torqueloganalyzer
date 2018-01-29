@@ -19,6 +19,7 @@ namespace options
 	std::string queue_filter = "";
 	std::string user_filter = "";
 	std::string write_workload = "";
+	bool ignore_array_jobs = false;
 }
 
 int parse_options(int argc, char *argv[])
@@ -33,6 +34,7 @@ int parse_options(int argc, char *argv[])
 			("single-queue", po::value<string>(), "Only process jobs from a single queue.")
 			("single-user", po::value<string>(), "Only process jobs from a single user.")
 			("write-workload", po::value<string>(), "Write workload to the specified filename.")
+			("ignore-array-jobs", "Ignore all array jobs")
 			;
 
 	po::options_description hidden("Hidden options");
@@ -91,5 +93,9 @@ int parse_options(int argc, char *argv[])
 		options::write_workload = vm["write-workload"].as<string>();
 	}
 
+	if (vm.count("ignore-array-jobs"))
+	{
+		options::ignore_array_jobs = true;
+	}
 	return 0;
 }

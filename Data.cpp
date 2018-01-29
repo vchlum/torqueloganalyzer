@@ -5,6 +5,7 @@
 
 // STD C++
 #include <future>
+ #include <regex>
 
 // BOOST
 #include <boost/spirit/include/qi.hpp>
@@ -22,11 +23,17 @@ void callback(const char * const begin, const char * const end)
   using It = std::string::const_iterator;
   It f(input.begin()), l(input.end());
   JobData parsed;
+  std::regex e_arrayjob (".*\\[[0-9]*\\].*");
 
   bool ok = qi::phrase_parse(f,l,grammar<It>(),qi::space,parsed);
   if (!ok) {
       std::cout << "Parsing failed" << std::endl;
       return;
+  }
+
+  if (options::ignore_array_jobs) {
+      if (std::regex_match(parsed.id,e_arrayjob))
+          return;
   }
 
   data.push_back(parsed);
