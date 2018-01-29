@@ -29,7 +29,7 @@ struct grammar : qi::grammar<it, JobData(), Skipper> {
 	       ];
 
 	id     = lexeme [ *~char_(';') ];
-	event  = lexeme [ char_("QSEDARC") ];
+	event  = lexeme [ char_("QSEDARCL") ];
 
     auto time_arriv = bind(&JobData::Fields::time_arriv, _val);
     auto time_start = bind(&JobData::Fields::time_start, _val);

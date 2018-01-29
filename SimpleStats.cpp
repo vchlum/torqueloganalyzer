@@ -17,6 +17,7 @@ int generate_simple_stats()
 		case 'E': global_stats.event_completed++; break;
 		case 'D': global_stats.event_delete++; break;
 		case 'A': global_stats.event_abort++; break;
+		case 'L': break;
 		default: return 1;
 		}
 	}
