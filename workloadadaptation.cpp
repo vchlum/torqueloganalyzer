@@ -160,6 +160,9 @@ void detect_sessions(map<string, vector<Session> >& sessions)
         }
         last_arrival = this_arrival;
       }
+
+      for (size_t k = 0; k < user_session.size(); k++)
+	    user_session[k].setup_internal_dependencies();
     }
   }
 
